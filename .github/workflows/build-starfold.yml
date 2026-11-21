@@ -55,6 +55,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="starfold-$SF_SHA-${GITHUB_RUN_NUMBER}"
-          gh release create "$tag" out/*.ipa -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+          { gh release create "$tag" out/*.ipa -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "Starfold unsigned IPAs ($tag)" \
-            --notes "Unsigned iOS and tvOS builds of JarvanSun/Starfold@$SF_SHA for sideloading."
+            --notes "Unsigned iOS and tvOS builds of JarvanSun/Starfold@$SF_SHA for sideloading." ; } > /tmp/gh.log 2>&1 || { while IFS= read -r l; do echo "::error::release: $l"; done < /tmp/gh.log; exit 1; }

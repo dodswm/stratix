@@ -47,6 +47,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="ipa-$(git rev-parse --short HEAD)"
-          gh release create "$tag" out/Stratix.ipa -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+          { gh release create "$tag" out/Stratix.ipa -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "Stratix unsigned tvOS IPA ($tag)" \
-            --notes "Unsigned device build of $GITHUB_SHA for sideloading (sign with your own tool)."
+            --notes "Unsigned device build of $GITHUB_SHA for sideloading (sign with your own tool)." ; } > /tmp/gh.log 2>&1 || { while IFS= read -r l; do echo "::error::release: $l"; done < /tmp/gh.log; exit 1; }
