@@ -1,0 +1,54 @@
+name: Build unsigned Starfold IPAs (iOS + tvOS)
+
+# Builds github.com/JarvanSun/Starfold (needs Xcode 27) from this fork's `ipa` branch.
+on:
+  push:
+    branches: [ipa]
+    paths: ['.github/workflows/build-starfold.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  starfold:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: JarvanSun/Starfold
+          path: starfold
+
+      - name: Select Xcode 27
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '27'
+
+      - name: Build and package
+        working-directory: starfold
+        run: |
+          set -eo pipefail
+          xcodebuild -version
+          mkdir -p ../out
+          for pair in StarfoldiOS:iOS:iphoneos StarfoldTV:tvOS:appletvos; do
+            IFS=: read scheme platform sdk <<<"$pair"
+            xcodebuild -project Starfold.xcodeproj -scheme "$scheme" -configuration Release \
+              -destination "generic/platform=$platform" -derivedDataPath "/tmp/dd-$scheme" \
+              -skipPackagePluginValidation -skipMacroValidation \
+              CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+              build | tail -100
+            app=$(find "/tmp/dd-$scheme/Build/Products/Release-$sdk" -maxdepth 1 -name '*.app' | head -1)
+            echo "$scheme -> $app"
+            rm -rf /tmp/pkg && mkdir -p /tmp/pkg/Payload && cp -R "$app" /tmp/pkg/Payload/
+            (cd /tmp/pkg && zip -qry "$GITHUB_WORKSPACE/out/$scheme.ipa" Payload)
+          done
+          ls -la ../out
+          echo "SF_SHA=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="starfold-$SF_SHA-${GITHUB_RUN_NUMBER}"
+          gh release create "$tag" out/*.ipa -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Starfold unsigned IPAs ($tag)" \
+            --notes "Unsigned iOS and tvOS builds of JarvanSun/Starfold@$SF_SHA for sideloading."

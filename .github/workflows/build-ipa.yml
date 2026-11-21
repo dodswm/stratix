@@ -4,6 +4,7 @@ name: Build unsigned tvOS IPA
 on:
   push:
     branches: [ipa]
+    paths-ignore: ['.github/workflows/build-starfold.yml']
 
 permissions:
   contents: write
