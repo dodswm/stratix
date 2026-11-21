@@ -4,7 +4,7 @@ name: Build unsigned tvOS IPA
 on:
   push:
     branches: [ipa]
-    paths-ignore: ['.github/workflows/build-starfold.yml']
+    paths: ['.github/workflows/build-ipa.yml']
 
 permissions:
   contents: write
@@ -47,6 +47,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="ipa-$(git rev-parse --short HEAD)"
-          gh release create "$tag" out/Stratix.ipa --target "$GITHUB_SHA" \
+          gh release create "$tag" out/Stratix.ipa -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "Stratix unsigned tvOS IPA ($tag)" \
             --notes "Unsigned device build of $GITHUB_SHA for sideloading (sign with your own tool)."
