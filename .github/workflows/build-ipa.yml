@@ -1,0 +1,51 @@
+name: Build unsigned tvOS IPA
+
+# Lives only on the `ipa` branch, so the upstream CI (main-only) never runs here.
+on:
+  push:
+    branches: [ipa]
+
+permissions:
+  contents: write
+
+jobs:
+  ipa:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select latest stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Build for Apple TV (device, unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace Stratix.xcworkspace \
+            -scheme Stratix-ReleaseRun \
+            -configuration Release \
+            -destination 'generic/platform=tvOS' \
+            -derivedDataPath /tmp/dd \
+            -clonedSourcePackagesDirPath /tmp/spm \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build | tail -200
+
+      - name: Package IPA
+        run: |
+          app=$(find /tmp/dd/Build/Products/Release-appletvos -maxdepth 1 -name '*.app' | head -1)
+          echo "app: $app"
+          mkdir -p out/Payload
+          cp -R "$app" out/Payload/
+          (cd out && zip -qry Stratix.ipa Payload)
+          ls -la out/Stratix.ipa
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="ipa-$(git rev-parse --short HEAD)"
+          gh release create "$tag" out/Stratix.ipa --target "$GITHUB_SHA" \
+            --title "Stratix unsigned tvOS IPA ($tag)" \
+            --notes "Unsigned device build of $GITHUB_SHA for sideloading (sign with your own tool)."
