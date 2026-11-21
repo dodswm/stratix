@@ -30,7 +30,7 @@ jobs:
         working-directory: starfold
         run: |
           set -eo pipefail
-          xcodebuild -version
+          echo "::notice::$(xcodebuild -version | tr '\n' ' ') | installed: $(ls -d /Applications/Xcode* | tr '\n' ' ')"
           mkdir -p ../out
           for pair in StarfoldiOS:iOS:iphoneos StarfoldTV:tvOS:appletvos; do
             IFS=: read scheme platform sdk <<<"$pair"
@@ -38,7 +38,10 @@ jobs:
               -destination "generic/platform=$platform" -derivedDataPath "/tmp/dd-$scheme" \
               -skipPackagePluginValidation -skipMacroValidation \
               CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-              build | tail -100
+              build > "/tmp/$scheme.log" 2>&1 || {
+                grep -E "error:|fatal" "/tmp/$scheme.log" | sort -u | head -15 | while IFS= read -r l; do echo "::error::$scheme: ${l: -400}"; done
+                tail -5 "/tmp/$scheme.log" | while IFS= read -r l; do echo "::error::$scheme tail: $l"; done
+                exit 1; }
             app=$(find "/tmp/dd-$scheme/Build/Products/Release-$sdk" -maxdepth 1 -name '*.app' | head -1)
             echo "$scheme -> $app"
             rm -rf /tmp/pkg && mkdir -p /tmp/pkg/Payload && cp -R "$app" /tmp/pkg/Payload/
